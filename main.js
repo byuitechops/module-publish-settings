@@ -7,49 +7,107 @@ const canvas = require('canvas-wrapper');
 const asyncLib = require('async');
 
 module.exports = (course, stepCallback) => {
-	course.addModuleReport('modulePublishSettings');
+    course.addModuleReport('module-publish-settings');
 
-	// Get the manifest
-	var manifest = course.content.find(file => {
-		return file.path.includes('imsmanifest.xml');
-	});
+    function getManifestItems(callback) {
+        var manifest = course.content.find(file => file.name === 'imsmanifest.xml');
+        var toUnpublish = [];
+        manifest.dom('[isvisible="False"] > title').each(function (i, ele) {
+            toUnpublish.push(manifest.dom(this).text());
+        });
+        callback(null, toUnpublish);
+    }
 
-	// Get all unpublished items
-	var unpubs = manifest.dom('[isvisible]>title').map((i, el) => {
-		return manifest.dom(el).html();
-	}).get();
+    function getCanvasModules(toUnpublish, callback) {
+        canvas.get(`/api/v1/courses/${course.info.canvasOU}/modules`, (err, modules) => {
+            callback(err, toUnpublish, modules);
+        });
+    }
 
-	console.log('UNPUBS');
-	console.log(unpubs);
+    function unpublishModules(toUnpublish, modules, callback) {
+        asyncLib.eachSeries(modules, (module, moduleCb) => {
+            if (toUnpublish.includes(module.name)) {
+                /* Unpublish the module */
+                canvas.put(
+                    `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}`,
+                    { 'module[published]': false },
+                    (err, res) => {
+                        if (err) {
+                            moduleCb(err);
+                            return;
+                        }
+                        course.success('module-publish-settings', `Module: ${module.name} was successfully unpublished`);
+                        moduleCb(null);
+                    }
+                );
+            } else {
+                moduleCb(null);
+            }
+        }, (moduleErr) => {
+            if (moduleErr) {
+                callback(moduleErr);
+            } else {
+                callback(null, toUnpublish, modules);
+            }
+        });
+    }
 
-	// Get the new Canvas Course's Modules
-	canvas.get(`/api/v1/courses/${course.info.canvasOU}/modules`, (getModsErr, modules) => {
-		if (getModsErr) course.throwErr('modulePublishSettings', getModsErr);
-		else {
-			// Go through each module, look for items that need to be unpublished
-			asyncLib.each(modules, (module, callback) => {
-				console.log('MODULE', module.name);
-				// Go through this module's items for ones that need to be unpublished
-				canvas.get(`/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items`, (getItemsErr, items) => {
-					if (getItemsErr) course.throwErr('modulePublishSettings', getItemsErr);
-					else {
-						items.forEach(item => {
-							console.log('SEARCHING', item);
-							if (unpubs.includes(item.title)) {
-								// Update module item to be unpublished
-								console.log('FOUND', item.title);
-							}
-						});
-					}
-				});
+    function unpublishModuleItems(toUnpublish, modules, callback) {
+        /* For each module */
+        asyncLib.eachSeries(modules, (module, moduleCb) => {
+            /* Get the module's items */
+            canvas.get(`/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items`, (moduleErr,
+                moduleItems) => {
+                if (moduleErr) moduleCb(moduleErr);
+                /* For each module item */
+                asyncLib.eachSeries(moduleItems, (item, itemsCb) => {
+                    /* If it is marked for unpublishing */
+                    if (toUnpublish.includes(item.title)) {
+                        /* Unpublish the module item */
+                        canvas.put(
+                            `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items/${item.id}`,
+							{ 'module_item[published]': false },
+                            (err, res) => {
+                                if (err) {
+                                    itemsCb(err);
+                                    return;
+                                }
+                                course.success('module-publish-settings', `Module Item: ${item.title} was successfully unpublished`);
+                                itemsCb(null);
+                            }
+                        );
+                    } else {
+                        itemsCb(null);
+                    }
+                }, itemsErr => {
+                    if (itemsErr) {
+                        moduleCb(itemsErr);
+                        return;
+                    }
+                    moduleCb(null);
+                });
+            });
+        }, (err, results) => {
+            if (err) {
+                callback(err);
+                return;
+            }
+            callback(null);
+        });
+    }
 
-			}, err => {
-				if (err) course.throwErr('modulePublishSettings', err);
-				else {
-					console.log('Done');
-					stepCallback(null, course);
-				}
-			});
-		}
-	});
+	setTimeout(() => {
+		asyncLib.waterfall([
+	        getManifestItems,
+	        getCanvasModules,
+            unpublishModules,
+	        unpublishModuleItems
+	    ], (err, results) => {
+	        if (err) course.throwErr('module-publish-settings', err);
+	        else {
+	            console.log('complete');
+	            stepCallback(null, course);
+	        }
+	    });
+	}, 10000);
 };
