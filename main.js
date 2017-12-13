@@ -1,4 +1,5 @@
 /*eslint-env node, es6*/
+/*eslint no-console:1*/
 
 /* Module Description */
 
@@ -29,8 +30,9 @@ module.exports = (course, stepCallback) => {
             if (toUnpublish.includes(module.name)) {
                 /* Unpublish the module */
                 canvas.put(
-                    `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}`,
-                    { 'module[published]': false },
+                    `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}`, {
+                        'module[published]': false
+                    },
                     (err, res) => {
                         if (err) {
                             moduleCb(err);
@@ -62,11 +64,12 @@ module.exports = (course, stepCallback) => {
                 /* For each module item */
                 asyncLib.eachSeries(moduleItems, (item, itemsCb) => {
                     /* If it is marked for unpublishing */
-                    if (toUnpublish.includes(item.title)) {
+                    if (toUnpublish.includes(item.title) || /(general)?\s*lesson\s*notes/i.test(item.title)) {
                         /* Unpublish the module item */
                         canvas.put(
-                            `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items/${item.id}`,
-							{ 'module_item[published]': false },
+                            `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items/${item.id}`, {
+                                'module_item[published]': false
+                            },
                             (err, res) => {
                                 if (err) {
                                     itemsCb(err);
@@ -96,18 +99,18 @@ module.exports = (course, stepCallback) => {
         });
     }
 
-	setTimeout(() => {
-		asyncLib.waterfall([
-	        getManifestItems,
-	        getCanvasModules,
+    setTimeout(() => {
+        asyncLib.waterfall([
+            getManifestItems,
+            getCanvasModules,
             unpublishModules,
-	        unpublishModuleItems
-	    ], (err, results) => {
-	        if (err) course.throwErr('module-publish-settings', err);
-	        else {
-	            console.log('complete');
-	            stepCallback(null, course);
-	        }
-	    });
-	}, 10000);
+            unpublishModuleItems
+        ], (err, results) => {
+            if (err) course.throwErr('module-publish-settings', err);
+            else {
+                console.log('complete');
+                stepCallback(null, course);
+            }
+        });
+    }, 10000);
 };
