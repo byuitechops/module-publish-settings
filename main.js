@@ -105,7 +105,6 @@ module.exports = (course, stepCallback) => {
 	    ], (err, results) => {
 	        if (err) course.throwErr('module-publish-settings', err);
 	        else {
-	            console.log('complete');
 	            stepCallback(null, course);
 	        }
 	    });
