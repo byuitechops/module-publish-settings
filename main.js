@@ -64,7 +64,7 @@ module.exports = (course, stepCallback) => {
                 /* For each module item */
                 asyncLib.eachSeries(moduleItems, (item, itemsCb) => {
                     /* If it is marked for unpublishing */
-                    if (toUnpublish.includes(item.title) || /(general)?\s*lesson\s*notes/i.test(item.title)) {
+                    if (toUnpublish.includes(item.title) || /(general)?\s*lesson\s*\d{0,2}\s*notes/i.test(item.title)) {
                         /* Unpublish the module item */
                         canvas.put(
                             `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items/${item.id}`, {
