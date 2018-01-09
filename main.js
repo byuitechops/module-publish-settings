@@ -79,6 +79,22 @@ module.exports = (course, stepCallback) => {
                                 itemsCb(null);
                             }
                         );
+                    } else if (item.type == 'ExternalUrl') {
+                        /* If it is an external link, and it isn't something marked to be unpublished, then publish it */
+                        /* Canvas unpublishes external links when importing, for some reason */
+                        canvas.put(
+                            `/api/v1/courses/${course.info.canvasOU}/modules/${module.id}/items/${item.id}`, {
+                                'module_item[published]': true
+                            },
+                            (err, res) => {
+                                if (err) {
+                                    itemsCb(err);
+                                    return;
+                                }
+                                course.success('module-publish-settings', `Module Item (External URL): ${item.title} was successfully published`);
+                                itemsCb(null);
+                            }
+                        );
                     } else {
                         itemsCb(null);
                     }
