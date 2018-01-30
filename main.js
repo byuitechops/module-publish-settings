@@ -1,5 +1,4 @@
 /*eslint-env node, es6*/
-/*eslint no-console:1*/
 
 /* Module Description */
 
@@ -8,12 +7,11 @@ const canvas = require('canvas-wrapper');
 const asyncLib = require('async');
 
 module.exports = (course, stepCallback) => {
-    course.addModuleReport('module-publish-settings');
 
     function getManifestItems(callback) {
         var manifest = course.content.find(file => file.name === 'imsmanifest.xml');
         var toUnpublish = [];
-        manifest.dom('[isvisible="False"] > title').each(function (i, ele) {
+        manifest.dom('[isvisible="False"] > title').each(function (i) {
             toUnpublish.push(manifest.dom(this).text());
         });
         callback(null, toUnpublish);
@@ -38,7 +36,9 @@ module.exports = (course, stepCallback) => {
                             moduleCb(err);
                             return;
                         }
-                        course.success('module-publish-settings', `Module: ${module.name} was successfully unpublished`);
+                        course.log('Modules set to unpublished', {
+                            'Module Name': module.name
+                        });
                         moduleCb(null);
                     }
                 );
@@ -75,7 +75,9 @@ module.exports = (course, stepCallback) => {
                                     itemsCb(err);
                                     return;
                                 }
-                                course.success('module-publish-settings', `Module Item: ${item.title} was successfully unpublished`);
+                                course.log('Unpublished Module Items', {
+                                    'Item Title': item.title
+                                });
                                 itemsCb(null);
                             }
                         );
@@ -91,7 +93,9 @@ module.exports = (course, stepCallback) => {
                                     itemsCb(err);
                                     return;
                                 }
-                                course.success('module-publish-settings', `Module Item (External URL): ${item.title} was successfully published`);
+                                course.log('Unpublished Module Items', {
+                                    'Item Title': item.title
+                                });
                                 itemsCb(null);
                             }
                         );
@@ -120,12 +124,12 @@ module.exports = (course, stepCallback) => {
             getManifestItems,
             getCanvasModules,
             unpublishModules,
-	        unpublishModuleItems
-	    ], (err, results) => {
-	        if (err) course.throwErr('module-publish-settings', err);
-	        else {
-	            stepCallback(null, course);
-	        }
-	    });
-	}, 10000);
+            unpublishModuleItems
+        ], (err) => {
+            if (err) course.error(err);
+            else {
+                stepCallback(null, course);
+            }
+        });
+    }, 10000);
 };
