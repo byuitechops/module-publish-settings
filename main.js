@@ -1,6 +1,5 @@
-/*eslint-env node, es6*/
-
 /* Module Description */
+/* Enforces publish setting from D2L (D23L drafts become unpublished) */
 
 /* Put dependencies here */
 const canvas = require('canvas-wrapper');
@@ -11,7 +10,7 @@ module.exports = (course, stepCallback) => {
     function getManifestItems(callback) {
         var manifest = course.content.find(file => file.name === 'imsmanifest.xml');
         var toUnpublish = [];
-        manifest.dom('[isvisible="False"] > title').each(function (i) {
+        manifest.dom('[isvisible="False"] > title').each(function () {
             toUnpublish.push(manifest.dom(this).text());
         });
         callback(null, toUnpublish);
@@ -119,17 +118,15 @@ module.exports = (course, stepCallback) => {
         });
     }
 
-    setTimeout(() => {
-        asyncLib.waterfall([
-            getManifestItems,
-            getCanvasModules,
-            unpublishModules,
-            unpublishModuleItems
-        ], (err) => {
-            if (err) course.error(err);
-            else {
-                stepCallback(null, course);
-            }
-        });
-    }, 10000);
+    asyncLib.waterfall([
+        getManifestItems,
+        getCanvasModules,
+        unpublishModules,
+        unpublishModuleItems
+    ], (err) => {
+        if (err) course.error(err);
+        else {
+            stepCallback(null, course);
+        }
+    });
 };
